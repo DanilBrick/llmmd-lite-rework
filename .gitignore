@@ -1,0 +1,58 @@
+# --- Python ---
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# --- Tests / lint ---
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# --- Runtime (launcher logs, PIDs) ---
+.runtime/
+*.log
+
+# --- Secrets / local env ---
+.env
+.env.*
+!.env.example
+
+# --- User data & generated artifacts ---
+outputs/
+uploads/
+
+# --- App settings (may contain API keys) ---
+rag_service/ui_settings.json
+gui_settings.json
+
+# --- Streamlit ---
+.streamlit/secrets.toml
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# --- Editors (optional local prefs) ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# --- Jupyter ---
+.ipynb_checkpoints/

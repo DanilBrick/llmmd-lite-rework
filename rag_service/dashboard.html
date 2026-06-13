@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>llmmd RAG — панель</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --card2: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --ok: #3fb950;
+      --warn: #d29922;
+      --err: #f85149;
+      --accent: #58a6ff;
+      --btn: #238636;
+      --btn2: #30363d;
+    }
+    :root.light {
+      --bg: #f6f8fa;
+      --card: #ffffff;
+      --card2: #f0f3f6;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --muted: #656d76;
+      --ok: #1a7f37;
+      --warn: #9a6700;
+      --err: #cf222e;
+      --accent: #0969da;
+      --btn: #2da44e;
+      --btn2: #f6f8fa;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: ui-sans-serif, "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 1rem 1.25rem 2rem;
+      line-height: 1.45;
+      transition: background 0.2s, color 0.2s;
+    }
+    h1 { font-size: 1.35rem; font-weight: 650; margin: 0 0 0.35rem; letter-spacing: -0.02em; }
+    .sub { color: var(--muted); font-size: 0.88rem; margin: 0 0 1rem; }
+    a { color: var(--accent); }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.75rem;
+      padding: 0.65rem 0.85rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 1rem;
+    }
+    .toolbar label { font-size: 0.82rem; color: var(--muted); display: flex; align-items: center; gap: 0.35rem; }
+    .toolbar select, .toolbar button {
+      font: inherit;
+      font-size: 0.85rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card2);
+      color: var(--text);
+      padding: 0.35rem 0.55rem;
+    }
+    .toolbar button.primary { background: var(--btn); border-color: transparent; color: #fff; cursor: pointer; }
+    .toolbar button.secondary { cursor: pointer; }
+    .toolbar button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .switch {
+      position: relative;
+      width: 2.5rem;
+      height: 1.35rem;
+      border-radius: 999px;
+      background: var(--border);
+      cursor: pointer;
+      border: none;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    .switch.on { background: var(--ok); }
+    .switch i {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: calc(1.35rem - 4px);
+      height: calc(1.35rem - 4px);
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.2s;
+    }
+    .switch.on i { transform: translateX(1.1rem); }
+    .grid {
+      display: grid;
+      gap: 0.85rem;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+    }
+    .card.wide { grid-column: 1 / -1; }
+    .card h2 {
+      margin: 0 0 0.55rem;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      font-weight: 650;
+    }
+    .kv { font-size: 0.88rem; }
+    .kv div { margin: 0.22rem 0; display: flex; gap: 0.45rem; flex-wrap: wrap; align-items: baseline; }
+    .k { color: var(--muted); min-width: 9rem; flex-shrink: 0; }
+    .badge {
+      display: inline-block;
+      padding: 0.12rem 0.42rem;
+      border-radius: 6px;
+      font-size: 0.76rem;
+      font-weight: 650;
+    }
+    .badge.ok { background: color-mix(in srgb, var(--ok) 22%, transparent); color: var(--ok); }
+    .badge.bad { background: color-mix(in srgb, var(--err) 18%, transparent); color: var(--err); }
+    .badge.run { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
+    .badge.idle { background: var(--card2); color: var(--muted); }
+    .badge.dim { background: var(--card2); color: var(--muted); }
+    .bar {
+      height: 7px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 0.45rem;
+    }
+    .bar > i {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #79c0ff);
+      width: 0%;
+      transition: width 0.35s ease;
+    }
+    pre.err, pre.box {
+      margin: 0.45rem 0 0;
+      padding: 0.55rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.76rem;
+      max-height: 200px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    pre.err { background: color-mix(in srgb, var(--err) 10%, transparent); }
+    pre.box { background: var(--card2); border: 1px solid var(--border); max-height: 280px; }
+    table.tbl { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 0.5rem; }
+    table.tbl th, table.tbl td { border: 1px solid var(--border); padding: 0.38rem 0.5rem; text-align: left; vertical-align: top; }
+    table.tbl th { color: var(--muted); font-weight: 650; background: var(--card2); }
+    table.tbl td.mono { font-family: ui-monospace, Consolas, monospace; font-size: 0.78rem; word-break: break-all; }
+    .foot { margin-top: 1rem; color: var(--muted); font-size: 0.82rem; display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+    .mono { font-family: ui-monospace, Consolas, monospace; font-size: 0.8rem; }
+    .probes { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.35rem; }
+    .probes button { font: inherit; font-size: 0.8rem; padding: 0.3rem 0.55rem; border-radius: 6px; border: 1px solid var(--border); background: var(--card2); color: var(--text); cursor: pointer; }
+    .probes button:hover { border-color: var(--accent); }
+    details.zone { margin-top: 0.5rem; }
+    details.zone > summary { cursor: pointer; color: var(--warn); font-size: 0.86rem; font-weight: 600; }
+    .form-grid { display: grid; gap: 0.45rem; margin-top: 0.55rem; max-width: 52rem; }
+    .form-grid label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; color: var(--muted); }
+    .form-grid input, .form-grid select { font: inherit; padding: 0.35rem 0.45rem; border-radius: 6px; border: 1px solid var(--border); background: var(--card2); color: var(--text); }
+    .form-row { display: flex; flex-wrap: wrap; gap: 0.65rem; align-items: center; margin-top: 0.45rem; }
+    .hint { font-size: 0.78rem; color: var(--muted); margin-top: 0.35rem; }
+    .spark { color: var(--muted); font-size: 0.78rem; }
+    .err-list { max-height: 120px; overflow: auto; margin: 0.35rem 0 0; padding-left: 1.1rem; font-size: 0.78rem; color: var(--err); }
+  </style>
+</head>
+<body>
+  <h1>llmmd RAG — панель управления</h1>
+  <p class="sub">
+    <a href="/docs">/docs</a>
+    · <a href="/health">/health</a>
+    · <a href="/v1/status">/v1/status</a>
+    · <a href="/v1/config">/v1/config</a>
+    · <a href="/v1/settings">/v1/settings</a>
+    · <a href="/v1/qdrant/collection">/v1/qdrant/collection</a>
+    · <a href="/v1/qdrant/points?limit=15">/v1/qdrant/points</a>
+  </p>
+
+  <div class="toolbar" id="toolbar">
+    <label title="Авто-опрос /v1/status и /v1/config">
+      <span>Мониторинг</span>
+      <button type="button" class="switch on" id="pollSwitch" aria-pressed="true"><i></i></button>
+    </label>
+    <label>Интервал
+      <select id="pollInterval">
+        <option value="0">Выкл (только вручную)</option>
+        <option value="750">0,75 с</option>
+        <option value="1500" selected>1,5 с</option>
+        <option value="5000">5 с</option>
+        <option value="15000">15 с</option>
+        <option value="60000">60 с</option>
+      </select>
+    </label>
+    <button type="button" class="primary secondary" id="btnRefresh">Обновить сейчас</button>
+    <label title="Светлая тема">
+      <span>Тема</span>
+      <button type="button" class="switch" id="themeSwitch" aria-pressed="false"><i></i></button>
+    </label>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Сервис</h2>
+      <div class="kv" id="svc"></div>
+    </section>
+    <section class="card">
+      <h2>Qdrant</h2>
+      <div class="kv" id="qd"></div>
+    </section>
+    <section class="card wide">
+      <h2>Векторное хранилище — срез индекса</h2>
+      <p class="hint">
+        Просмотр записей в коллекции (payload, без векторов). Полный обход коллекции — через
+        <a href="https://qdrant.tech/documentation/interfaces/#web-ui" rel="noopener">Qdrant Web UI</a>
+        или API <span class="mono">scroll</span>.
+      </p>
+      <div class="form-row">
+        <label>limit
+          <input type="number" id="qd-browse-limit" value="20" min="1" max="200" style="width:5rem" />
+        </label>
+        <button type="button" class="secondary" id="qd-browse-load">Загрузить срез</button>
+      </div>
+      <div id="qd-browse-wrap"></div>
+    </section>
+    <section class="card">
+      <h2>LLM / RAG</h2>
+      <div class="kv" id="ragllm"></div>
+    </section>
+    <section class="card">
+      <h2>LM Studio (чанкинг)</h2>
+      <div class="kv" id="lm"></div>
+    </section>
+    <section class="card">
+      <h2>Активность API</h2>
+      <div class="kv" id="act"></div>
+    </section>
+    <section class="card">
+      <h2>Конфигурация (env)</h2>
+      <div class="kv" id="cfg"></div>
+      <p class="hint" id="cfgNote"></p>
+    </section>
+    <section class="card wide">
+      <h2>Настройки сервиса (UI → JSON)</h2>
+      <p class="hint" id="uiMeta">Загрузите форму с сервера, измените поля и нажмите «Сохранить». Смена Qdrant URL или модели эмбеддинга переподключает ядро (не во время индексации). Секреты: пустое поле = не менять; галочка «сбросить» — удалить ключ.</p>
+      <div id="uiFormMount" class="form-grid"></div>
+      <div class="form-row">
+        <button type="button" class="secondary" id="uiLoad">Загрузить с сервера</button>
+        <button type="button" class="primary secondary" id="uiSave">Сохранить на сервер</button>
+      </div>
+      <pre class="box mono" id="uiSaveOut" hidden></pre>
+    </section>
+    <section class="card wide">
+      <h2>Индексация</h2>
+      <div class="kv" id="idx"></div>
+      <div class="bar"><i id="bar"></i></div>
+      <ul class="err-list" id="idxErrs" hidden></ul>
+      <details class="zone">
+        <summary>Запуск индексации (POST /v1/index)</summary>
+        <p class="hint">Без токена авторизации: не открывайте порт наружу. Пустой «корпус» — подставится RAG_CORPUS_ROOT с сервера.</p>
+        <div class="form-grid">
+          <label>corpus_root (каталог с .md)
+            <input type="text" id="ix-root" placeholder="например C:/…/outputs" autocomplete="off" />
+          </label>
+          <label>glob_pattern
+            <input type="text" id="ix-glob" value="**/*.md" />
+          </label>
+          <label>chunking_mode (пусто = по умолчанию)
+            <select id="ix-chunk">
+              <option value="">по умолчанию</option>
+              <option value="heading">heading</option>
+              <option value="semantic">semantic</option>
+              <option value="heading_semantic">heading_semantic</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label><input type="checkbox" id="ix-wait" checked /> wait (дождаться конца)</label>
+          <label><input type="checkbox" id="ix-rec" /> recreate_collection</label>
+          <button type="button" class="primary secondary" id="ix-run">Запустить</button>
+        </div>
+        <pre class="box mono" id="ix-out" hidden></pre>
+      </details>
+    </section>
+    <section class="card wide">
+      <h2>Проверки и отладка</h2>
+      <div class="probes">
+        <button type="button" data-probe="/health">GET /health</button>
+        <button type="button" data-probe="/v1/lm-studio/health">LM Studio /models</button>
+        <button type="button" data-probe="/v1/config">GET /v1/config</button>
+        <button type="button" data-probe="/v1/settings">GET /v1/settings</button>
+      </div>
+      <pre class="box mono" id="probeOut" hidden></pre>
+    </section>
+  </div>
+
+  <p class="foot">
+    <span id="poll"></span>
+    <span class="spark" id="spark"></span>
+  </p>
+
+  <script>
+    const LS_POLL = "ragdash_poll_ms";
+    const LS_PAUSED = "ragdash_poll_paused";
+    const LS_THEME = "ragdash_theme_light";
+
+    function esc(s) {
+      if (s == null) return "";
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+    function row(k, v) {
+      return "<div><span class=\"k\">" + esc(k) + "</span><span>" + v + "</span></div>";
+    }
+    function badge(text, cls) {
+      return '<span class="badge ' + cls + '">' + esc(text) + "</span>";
+    }
+    function fmtTime(ts) {
+      if (!ts) return "—";
+      try { return new Date(ts * 1000).toLocaleString(); } catch { return "—"; }
+    }
+    function boolBadge(yes) {
+      return yes ? badge("да", "ok") : badge("нет", "dim");
+    }
+
+    const pollSwitch = document.getElementById("pollSwitch");
+    const pollInterval = document.getElementById("pollInterval");
+    const themeSwitch = document.getElementById("themeSwitch");
+    let pollTimer = null;
+    const latencies = [];
+
+    function loadPrefs() {
+      const ms = localStorage.getItem(LS_POLL);
+      if (ms != null) {
+        const v = String(parseInt(ms, 10));
+        const opt = Array.from(pollInterval.options).find((o) => o.value === v);
+        if (opt) pollInterval.value = v;
+      }
+      const paused = localStorage.getItem(LS_PAUSED) === "1";
+      setPollUi(!paused);
+      const light = localStorage.getItem(LS_THEME) === "1";
+      document.documentElement.classList.toggle("light", light);
+      themeSwitch.classList.toggle("on", light);
+      themeSwitch.setAttribute("aria-pressed", light ? "true" : "false");
+    }
+    function setPollUi(running) {
+      pollSwitch.classList.toggle("on", running);
+      pollSwitch.setAttribute("aria-pressed", running ? "true" : "false");
+      localStorage.setItem(LS_PAUSED, running ? "0" : "1");
+      reschedule();
+    }
+    function reschedule() {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      const ms = parseInt(pollInterval.value, 10);
+      localStorage.setItem(LS_POLL, String(ms));
+      const paused = localStorage.getItem(LS_PAUSED) === "1";
+      if (paused || !ms) return;
+      pollTimer = setInterval(tick, ms);
+    }
+
+    pollSwitch.addEventListener("click", () => {
+      const on = !pollSwitch.classList.contains("on");
+      setPollUi(on);
+    });
+    pollInterval.addEventListener("change", () => {
+      localStorage.setItem(LS_POLL, pollInterval.value);
+      reschedule();
+    });
+    themeSwitch.addEventListener("click", () => {
+      const light = !document.documentElement.classList.contains("light");
+      document.documentElement.classList.toggle("light", light);
+      themeSwitch.classList.toggle("on", light);
+      themeSwitch.setAttribute("aria-pressed", light ? "true" : "false");
+      localStorage.setItem(LS_THEME, light ? "1" : "0");
+    });
+    document.getElementById("btnRefresh").addEventListener("click", () => tick());
+
+    async function tick() {
+      const t0 = performance.now();
+      let st = null;
+      let cf = null;
+      try {
+        const [r1, r2] = await Promise.all([
+          fetch("/v1/status", { cache: "no-store" }),
+          fetch("/v1/config", { cache: "no-store" }),
+        ]);
+        st = r1.ok ? await r1.json() : { _err: "status " + r1.status };
+        cf = r2.ok ? await r2.json() : { _err: "config " + r2.status };
+      } catch (e) {
+        document.getElementById("svc").innerHTML = row("Сеть", badge("ошибка", "bad")) + row("Детали", "<pre class=\"err\">" + esc(String(e)) + "</pre>");
+        return;
+      }
+      const dt = Math.round(performance.now() - t0);
+      latencies.push(dt);
+      if (latencies.length > 10) latencies.shift();
+      document.getElementById("spark").textContent = "Задержка опроса: " + latencies.join(", ") + " ms";
+
+      const meta = st.meta || {};
+      const svc = st.service || {};
+      const ok = svc.ready;
+      document.getElementById("svc").innerHTML =
+        row("Версия API", esc(meta.api_version || "—")) +
+        row("Состояние", ok ? badge("ready", "ok") : badge(svc.phase || "?", svc.phase === "degraded" ? "bad" : "run")) +
+        row("Фаза", esc(svc.phase)) +
+        row("Uptime (старт)", esc(meta.uptime_since_start_s != null ? meta.uptime_since_start_s + " s" : "—")) +
+        row("Uptime (ready)", esc(meta.uptime_since_ready_s != null ? meta.uptime_since_ready_s + " s" : "—")) +
+        row("Ошибка старта", svc.startup_error ? badge("есть", "bad") : badge("нет", "ok")) +
+        (svc.startup_error ? "<pre class=\"err\">" + esc(svc.startup_error) + "</pre>" : "") +
+        row("Эмбеддинг", esc(svc.embedding_model || "—")) +
+        row("Hybrid", esc(String(svc.hybrid_enabled))) +
+        row("Размерность", esc(String(svc.dense_dim || "—")));
+
+      const qd = st.qdrant || {};
+      document.getElementById("qd").innerHTML =
+        row("Коллекция", esc(qd.collection_name || "—")) +
+        row("Точек (count)", esc(String(qd.points_count != null ? qd.points_count : "—"))) +
+        row("Коллекция OK", qd.collection_ok ? badge("да", "ok") : badge("нет", "bad")) +
+        (qd.error ? "<pre class=\"err\">" + esc(qd.error) + "</pre>" : "");
+
+      const rlm = st.rag_llm || {};
+      document.getElementById("ragllm").innerHTML =
+        row("default_rag_llm_provider", esc(String(rlm.default_rag_llm_provider || "—"))) +
+        row("lm_studio RAG", rlm.lm_studio_rag_ready ? badge("готов", "ok") : badge("нет модели", "bad")) +
+        row("openai", rlm.openai_ready ? badge("настроен", "ok") : badge("не задан", "dim")) +
+        row("anthropic", rlm.anthropic_ready ? badge("ключ есть", "ok") : badge("нет ключа", "dim"));
+
+      const job = st.index_job || {};
+      const phase = job.phase || "idle";
+      let phBadge = "run";
+      if (phase === "completed") phBadge = "ok";
+      else if (phase === "failed") phBadge = "bad";
+      else if (phase === "idle") phBadge = "idle";
+      const total = job.files_total || 0;
+      const done = job.files_done || 0;
+      const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+      document.getElementById("bar").style.width = phase === "running" ? pct + "%" : phase === "completed" ? "100%" : "0%";
+
+      let idxHtml =
+        row("Фаза", badge(phase, phBadge)) +
+        row("Job ID", esc(job.job_id || "—")) +
+        row("Режим", esc(job.wait_mode || "—")) +
+        row("Пересоздать коллекцию", boolBadge(!!job.recreate_collection)) +
+        row("Корпус", esc(job.corpus_root || "—")) +
+        row("Glob", esc(job.glob_pattern || "—")) +
+        row("Чанкинг", esc(job.chunking_mode || "—")) +
+        row("Файлы", esc(done + " / " + total)) +
+        row("Чанков upsert", esc(String(job.chunks_upserted || 0))) +
+        row("Пропуск пустых", esc(String(job.files_skipped_empty || 0))) +
+        row("Секунд", esc(String(job.seconds_elapsed != null ? job.seconds_elapsed : "—"))) +
+        row("Текущий файл", esc(job.current_file || "—")) +
+        row("Этап", esc(job.current_stage || "—")) +
+        (job.last_error ? row("Последняя ошибка", "<pre class=\"err\">" + esc(job.last_error) + "</pre>") : "");
+      if (job.result_summary && phase === "completed") {
+        idxHtml += row("Итог", "<pre class=\"box mono\">" + esc(JSON.stringify(job.result_summary, null, 2).slice(0, 2500)) + "</pre>");
+      }
+      document.getElementById("idx").innerHTML = idxHtml;
+
+      const errs = job.recent_errors || [];
+      const ul = document.getElementById("idxErrs");
+      if (errs.length) {
+        ul.hidden = false;
+        ul.innerHTML = errs.map((e) => "<li>" + esc(e) + "</li>").join("");
+      } else {
+        ul.hidden = true;
+        ul.innerHTML = "";
+      }
+
+      const act = st.activity || {};
+      document.getElementById("act").innerHTML =
+        row("Поисков (всего)", esc(String(act.searches_total || 0))) +
+        row("RAG (всего)", esc(String(act.rag_total || 0))) +
+        row("Последний поиск", fmtTime(act.last_search_at_unix)) +
+        row("Длина запроса", esc(String(act.last_search_query_len || 0))) +
+        row("Последний RAG", fmtTime(act.last_rag_at_unix));
+
+      const lm = st.lm_studio || {};
+      document.getElementById("lm").innerHTML =
+        row("URL", esc(lm.base_url || "—")) +
+        row("Модель (настроена)", lm.model_configured ? badge("да", "ok") : badge("нет", "bad")) +
+        row("Сервер", lm.server_ok ? badge("доступен", "ok") : badge("нет", "bad")) +
+        (lm.error ? "<pre class=\"err\">" + esc(lm.error) + "</pre>" : "") +
+        row("Моделей в /models", esc(String(lm.model_count != null ? lm.model_count : "—")));
+
+      if (!cf._err) {
+        document.getElementById("cfg").innerHTML =
+          row("Слушает", esc(cf.api_listen || "—")) +
+          row("Qdrant URL", esc(cf.qdrant_url || "—")) +
+          row("Qdrant API key", boolBadge(cf.qdrant_api_key_set)) +
+          row("Коллекция", esc(cf.collection_name || "—")) +
+          row("corpus_root (default)", esc(cf.corpus_root_default || "—")) +
+          row("Эмбеддинг", esc(cf.embedding_model || "—")) +
+          row("device", esc(cf.embedding_device != null ? String(cf.embedding_device) : "авто")) +
+          row("Hybrid", esc(String(cf.enable_hybrid))) +
+          row("chunking_mode", esc(cf.chunking_mode || "—")) +
+          row("heading_level", esc(String(cf.heading_level))) +
+          row("chunk_max / overlap", esc(String(cf.chunk_max_chars) + " / " + String(cf.chunk_overlap_chars))) +
+          row("LM Studio URL", esc(cf.lm_studio_base_url || "—")) +
+          row("LM Studio key", boolBadge(cf.lm_studio_api_key_set)) +
+          row("semantic_chunk_model", esc(cf.semantic_chunk_model || "—")) +
+          row("lm_studio_rag_model", esc(cf.lm_studio_rag_model || "—")) +
+          row("semantic timeout / max_in", esc(String(cf.semantic_llm_timeout_s) + " s / " + String(cf.semantic_chunk_max_input_chars))) +
+          row("openai_base_url", esc(cf.openai_base_url || "—")) +
+          row("openai_api_key", boolBadge(cf.openai_api_key_set)) +
+          row("default_llm_model", esc(cf.default_llm_model || "—")) +
+          row("default_rag_llm_provider", esc(cf.default_rag_llm_provider || "—")) +
+          row("anthropic_model", esc(cf.anthropic_model || "—")) +
+          row("anthropic_api_key", boolBadge(cf.anthropic_api_key_set)) +
+          row("anthropic_max_tokens", esc(String(cf.anthropic_max_tokens)));
+        document.getElementById("cfgNote").textContent = cf.secrets_note || "";
+        const rootIn = document.getElementById("ix-root");
+        if (rootIn && !rootIn.value && cf.corpus_root_default) rootIn.placeholder = cf.corpus_root_default;
+      } else {
+        document.getElementById("cfg").innerHTML = row("Ошибка", esc(cf._err));
+      }
+
+      document.getElementById("poll").textContent =
+        "Опрос: " + dt + " ms · " + new Date().toLocaleTimeString() + " · интервал " + (pollInterval.value === "0" ? "выкл" : pollInterval.value + " ms");
+    }
+
+    function textPreview(s, n) {
+      if (s == null) return "";
+      const t = String(s).replace(/\s+/g, " ").trim();
+      return t.length > n ? t.slice(0, n) + "…" : t;
+    }
+
+    document.getElementById("qd-browse-load").addEventListener("click", async () => {
+      const lim = Math.min(200, Math.max(1, parseInt(document.getElementById("qd-browse-limit").value, 10) || 20));
+      const wrap = document.getElementById("qd-browse-wrap");
+      wrap.innerHTML = "<p class=\"hint\">Загрузка…</p>";
+      try {
+        const r = await fetch("/v1/qdrant/points?limit=" + lim, { cache: "no-store" });
+        const data = await r.json();
+        if (!r.ok) {
+          wrap.innerHTML = "<pre class=\"err\">" + esc(JSON.stringify(data, null, 2)) + "</pre>";
+          return;
+        }
+        const pts = data.points || [];
+        const rows = pts.map((row) => {
+          const pl = row.payload || {};
+          const src = pl.source_path != null ? String(pl.source_path) : "";
+          const head = pl.heading != null ? String(pl.heading) : "";
+          const tx = pl.text != null ? textPreview(pl.text, 220) : "";
+          return "<tr><td class=\"mono\">" + esc(String(row.id || "")) + "</td><td>" + esc(src) + "</td><td>" + esc(head) + "</td><td>" + esc(tx) + "</td></tr>";
+        }).join("");
+        const more = data.has_more ? " · есть ещё точки (полный список — Qdrant UI)" : "";
+        wrap.innerHTML =
+          "<p class=\"hint\">Записей в ответе: " + esc(String(data.returned || 0)) + " из лимита " + esc(String(lim)) + more + "</p>" +
+          "<table class=\"tbl\"><thead><tr><th>id</th><th>файл</th><th>раздел</th><th>текст (превью)</th></tr></thead><tbody>" + rows + "</tbody></table>" +
+          (data.note ? "<p class=\"hint\">" + esc(data.note) + "</p>" : "");
+      } catch (e) {
+        wrap.innerHTML = "<pre class=\"err\">" + esc(String(e)) + "</pre>";
+      }
+    });
+
+    document.querySelectorAll("[data-probe]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const url = btn.getAttribute("data-probe");
+        const pre = document.getElementById("probeOut");
+        pre.hidden = false;
+        pre.textContent = "…";
+        try {
+          const r = await fetch(url, { cache: "no-store" });
+          const t = await r.text();
+          let parsed;
+          try { parsed = JSON.parse(t); } catch { parsed = t; }
+          pre.textContent = typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2);
+        } catch (e) {
+          pre.textContent = String(e);
+        }
+      });
+    });
+
+    document.getElementById("ix-run").addEventListener("click", async () => {
+      const out = document.getElementById("ix-out");
+      out.hidden = false;
+      out.textContent = "Запрос…";
+      const root = document.getElementById("ix-root").value.trim();
+      const chunk = document.getElementById("ix-chunk").value;
+      const body = {
+        corpus_root: root || null,
+        glob_pattern: document.getElementById("ix-glob").value.trim() || "**/*.md",
+        wait: document.getElementById("ix-wait").checked,
+        recreate_collection: document.getElementById("ix-rec").checked,
+        chunking_mode: chunk || null,
+      };
+      try {
+        const r = await fetch("/v1/index", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const t = await r.text();
+        let parsed;
+        try { parsed = JSON.parse(t); } catch { parsed = t; }
+        out.textContent = (r.status >= 400 ? "HTTP " + r.status + "\n" : "") + (typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2));
+        tick();
+      } catch (e) {
+        out.textContent = String(e);
+      }
+    });
+
+    const UI_FORM_ROWS = [
+      { k: "qdrant_url", kind: "str", lab: "Qdrant URL" },
+      { k: "qdrant_api_key", kind: "sec", lab: "Qdrant API key" },
+      { k: "collection_name", kind: "str", lab: "Имя коллекции" },
+      { k: "corpus_root", kind: "str", lab: "Корпус по умолчанию (каталог)" },
+      { k: "embedding_model", kind: "str", lab: "Модель эмбеддингов (HuggingFace)" },
+      { k: "embedding_device", kind: "str", lab: "Устройство (cuda / cpu, пусто = авто)" },
+      { k: "enable_hybrid", kind: "bool", lab: "Гибридный поиск (dense + sparse)" },
+      { k: "heading_level", kind: "int", lab: "Уровень заголовка (1–6)" },
+      { k: "chunk_max_chars", kind: "int", lab: "chunk_max_chars (0 = только заголовки)" },
+      { k: "chunk_overlap_chars", kind: "int", lab: "chunk_overlap_chars" },
+      { k: "chunking_mode", kind: "sel_chunk", lab: "Режим чанкинга" },
+      { k: "lm_studio_base_url", kind: "str", lab: "LM Studio base URL" },
+      { k: "lm_studio_api_key", kind: "sec", lab: "LM Studio API key" },
+      { k: "semantic_chunk_model", kind: "str", lab: "Модель LM для semantic chunk" },
+      { k: "semantic_llm_timeout_s", kind: "float", lab: "Таймаут LM (с)" },
+      { k: "semantic_chunk_max_input_chars", kind: "int", lab: "semantic_chunk_max_input_chars" },
+      { k: "semantic_subchunk_min_chars", kind: "int", lab: "semantic_subchunk_min_chars" },
+      { k: "semantic_chunk_temperature", kind: "float", lab: "semantic_chunk_temperature" },
+      { k: "api_host", kind: "str", lab: "API host (смена порта — перезапуск процесса)" },
+      { k: "api_port", kind: "int", lab: "API port" },
+      { k: "openai_base_url", kind: "str", lab: "OpenAI-compatible base URL" },
+      { k: "openai_api_key", kind: "sec", lab: "OpenAI API key" },
+      { k: "default_llm_model", kind: "str", lab: "Модель LLM по умолчанию" },
+      { k: "anthropic_api_key", kind: "sec", lab: "Anthropic API key" },
+      { k: "anthropic_model", kind: "str", lab: "Anthropic model id" },
+      { k: "anthropic_max_tokens", kind: "int", lab: "anthropic_max_tokens" },
+      { k: "lm_studio_rag_model", kind: "str", lab: "LM Studio модель для POST /v1/rag" },
+      { k: "default_rag_llm_provider", kind: "sel_prov", lab: "Провайдер RAG по умолчанию" },
+      { k: "ui_settings_file", kind: "str", lab: "Путь к JSON настроек (опционально)" },
+    ];
+    const UI_OPT_STR = new Set(["embedding_device", "openai_base_url", "corpus_root", "ui_settings_file", "semantic_chunk_model", "lm_studio_rag_model"]);
+
+    let uiBaseline = null;
+
+    function renderSettingsForm() {
+      const mount = document.getElementById("uiFormMount");
+      if (mount.dataset.ready === "1") return;
+      mount.dataset.ready = "1";
+      let h = "";
+      for (const r of UI_FORM_ROWS) {
+        const kid = "ui-" + r.k;
+        if (r.kind === "sec") {
+          h += "<label style=\"display:block;margin-bottom:.55rem\">" + esc(r.lab);
+          h += "<input type=\"password\" id=\"" + kid + "\" autocomplete=\"off\" placeholder=\"не менять — оставьте пустым\" style=\"width:100%;max-width:40rem\" />";
+          h += "<span class=\"hint\"> <label><input type=\"checkbox\" id=\"" + kid + "-clr\" /> сбросить ключ</label></span></label>";
+        } else if (r.kind === "bool") {
+          h += "<label style=\"display:flex;align-items:center;gap:.4rem;margin-bottom:.35rem\"><input type=\"checkbox\" id=\"" + kid + "\" /> " + esc(r.lab) + "</label>";
+        } else if (r.kind === "sel_chunk") {
+          h += "<label>" + esc(r.lab) + "<select id=\"" + kid + "\"><option value=\"heading\">heading</option><option value=\"semantic\">semantic</option><option value=\"heading_semantic\">heading_semantic</option></select></label>";
+        } else if (r.kind === "sel_prov") {
+          h += "<label>" + esc(r.lab) + "<select id=\"" + kid + "\"><option value=\"auto\">auto</option><option value=\"lm_studio\">lm_studio</option><option value=\"openai\">openai</option><option value=\"anthropic\">anthropic</option></select></label>";
+        } else if (r.kind === "int") {
+          h += "<label>" + esc(r.lab) + "<input type=\"text\" id=\"" + kid + "\" inputmode=\"numeric\" /></label>";
+        } else if (r.kind === "float") {
+          h += "<label>" + esc(r.lab) + "<input type=\"text\" id=\"" + kid + "\" /></label>";
+        } else {
+          h += "<label>" + esc(r.lab) + "<input type=\"text\" id=\"" + kid + "\" style=\"width:100%;max-width:40rem\" /></label>";
+        }
+      }
+      mount.innerHTML = h;
+    }
+
+    function applyUiBaseline(c) {
+      uiBaseline = JSON.parse(JSON.stringify(c));
+    }
+
+    function fillUiFromServer(data) {
+      renderSettingsForm();
+      const c = data.current || {};
+      applyUiBaseline(c);
+      document.getElementById("uiMeta").textContent =
+        "Файл на сервере: " + esc(data.persist_file || "") + (data.persist_file_exists ? " (есть)" : " (ещё нет)") + " — " + esc(data.note || "");
+      for (const r of UI_FORM_ROWS) {
+        const el = document.getElementById("ui-" + r.k);
+        if (!el) continue;
+        const v = c[r.k];
+        if (r.kind === "sec") {
+          el.value = "";
+          const clr = document.getElementById("ui-" + r.k + "-clr");
+          if (clr) clr.checked = false;
+        } else if (r.kind === "bool") {
+          el.checked = !!v;
+        } else if (r.kind === "sel_chunk" || r.kind === "sel_prov") {
+          el.value = v != null && String(v) !== "" ? String(v) : el.options[0].value;
+        } else {
+          el.value = v === null || v === undefined ? "" : String(v);
+        }
+      }
+    }
+
+    function readControlValue(r) {
+      const el = document.getElementById("ui-" + r.k);
+      if (!el) return null;
+      if (r.kind === "bool") return el.checked;
+      if (r.kind === "int") {
+        const t = el.value.trim();
+        if (t === "") return null;
+        const n = parseInt(t, 10);
+        return Number.isFinite(n) ? n : NaN;
+      }
+      if (r.kind === "float") {
+        const t = el.value.trim();
+        if (t === "") return null;
+        const n = parseFloat(t);
+        return Number.isFinite(n) ? n : NaN;
+      }
+      if (r.kind === "sel_chunk" || r.kind === "sel_prov") return el.value;
+      const t = el.value.trim();
+      if (r.kind === "str" && UI_OPT_STR.has(r.k) && t === "") return null;
+      return t;
+    }
+
+    function normBase(r, b) {
+      if (r.kind === "bool") return !!b;
+      if (b === undefined || b === null) return null;
+      return b;
+    }
+
+    function valsDiffer(r, cur, base) {
+      const nb = normBase(r, base);
+      if (r.kind === "float" && typeof cur === "number" && typeof nb === "number") {
+        return Math.abs(cur - nb) > 1e-6;
+      }
+      return String(cur === null || cur === undefined ? "" : cur) !== String(nb === null || nb === undefined ? "" : nb);
+    }
+
+    function collectUiPatch() {
+      const patch = {};
+      const clear_secrets = [];
+      for (const r of UI_FORM_ROWS) {
+        if (r.kind === "sec") {
+          const clr = document.getElementById("ui-" + r.k + "-clr");
+          if (clr && clr.checked) clear_secrets.push(r.k);
+          else {
+            const pw = document.getElementById("ui-" + r.k);
+            if (pw && pw.value.trim()) patch[r.k] = pw.value.trim();
+          }
+          continue;
+        }
+        const cur = readControlValue(r);
+        if (typeof cur === "number" && isNaN(cur)) return { err: "Некорректное число: " + r.lab };
+        const base = uiBaseline[r.k];
+        if (!valsDiffer(r, cur, base)) continue;
+        if (cur === null && (r.kind === "int" || r.kind === "float")) {
+          if (r.k === "api_port" || r.k === "heading_level") return { err: "Заполните поле: " + r.lab };
+        }
+        patch[r.k] = cur;
+      }
+      return { patch: patch, clear_secrets: clear_secrets };
+    }
+
+    async function loadUiSettings() {
+      const r = await fetch("/v1/settings", { cache: "no-store" });
+      const data = await r.json();
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      fillUiFromServer(data);
+    }
+
+    async function saveUiSettings() {
+      const out = document.getElementById("uiSaveOut");
+      out.hidden = false;
+      if (!uiBaseline) {
+        out.textContent = "Сначала нажмите «Загрузить с сервера».";
+        return;
+      }
+      const res = collectUiPatch();
+      if (res.err) {
+        out.textContent = res.err;
+        return;
+      }
+      if (Object.keys(res.patch).length === 0 && res.clear_secrets.length === 0) {
+        out.textContent = "Нет изменений для сохранения.";
+        return;
+      }
+      out.textContent = "Сохранение…";
+      try {
+        const r = await fetch("/v1/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ patch: res.patch, clear_secrets: res.clear_secrets }),
+        });
+        const t = await r.text();
+        let parsed;
+        try { parsed = JSON.parse(t); } catch { parsed = t; }
+        out.textContent = (r.status >= 400 ? "HTTP " + r.status + "\n" : "") + (typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2));
+        if (r.ok) {
+          await loadUiSettings();
+          tick();
+        }
+      } catch (e) {
+        out.textContent = String(e);
+      }
+    }
+
+    renderSettingsForm();
+    document.getElementById("uiLoad").addEventListener("click", async () => {
+      const out = document.getElementById("uiSaveOut");
+      out.hidden = false;
+      out.textContent = "Загрузка…";
+      try {
+        await loadUiSettings();
+        out.textContent = "Форма обновлена.";
+      } catch (e) {
+        out.textContent = String(e);
+      }
+    });
+    document.getElementById("uiSave").addEventListener("click", () => { saveUiSettings(); });
+    loadUiSettings().catch((e) => {
+      const out = document.getElementById("uiSaveOut");
+      out.hidden = false;
+      out.textContent = "Не удалось загрузить настройки: " + String(e);
+    });
+
+    loadPrefs();
+    tick();
+    reschedule();
+  </script>
+</body>
+</html>

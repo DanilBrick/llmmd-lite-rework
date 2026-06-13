@@ -1,0 +1,11 @@
+server:
+  base_url: http://127.0.0.1:1234/v1
+  api_token: null
+
+models:
+  ocr_model:
+    model_id: ""
+  text_model:
+    model_id: ""
+  figure_model:
+    model_id: ""

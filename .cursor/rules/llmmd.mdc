@@ -1,0 +1,19 @@
+---
+description: llmmd repository navigation and reuse rules
+alwaysApply: true
+---
+
+Read `AGENTS.md` first.
+
+Do not index or scan `outputs/`, `.venv/`, `.pytest_cache/`, or `__pycache__/` unless explicitly requested.
+
+Use `docs/REPO_MAP.md` to choose the owner module before searching.
+
+Launcher/process code belongs in `llmmd_core/`.
+Launcher defaults belong in `config/llmmd.yaml`.
+RAG settings belong in `rag_service/config.py` and `rag_service/ui_settings_store.py`.
+Qdrant access belongs in `rag_service/store.py`.
+Docker Qdrant lifecycle belongs in `llmmd_core/docker.py`.
+OCR/Markdown conversion belongs in `gui/services/file_processing.py`.
+
+Default verification: `python -m pytest -q`.

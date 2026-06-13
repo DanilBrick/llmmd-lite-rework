@@ -1,0 +1,11 @@
+# Зависимости только для отдельного RAG-сервиса (основное GUI-приложение их не требует).
+fastapi>=0.110
+uvicorn[standard]>=0.27
+qdrant-client>=1.12
+sentence-transformers>=3.0
+pydantic-settings>=2.0
+httpx>=0.27
+anthropic>=0.40
+numpy>=1.24
+# Гибридный sparse (BM25); без пакета сервис работает только с dense E5
+fastembed>=0.4.0

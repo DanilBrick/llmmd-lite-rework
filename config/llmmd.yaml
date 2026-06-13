@@ -1,0 +1,37 @@
+project:
+  name: llmmd
+
+services:
+  web:
+    host: 127.0.0.1
+    port: 8501
+
+  rag:
+    host: null
+    port: null
+    reload: false
+
+  lmstudio:
+    host: 127.0.0.1
+    port: 8790
+
+  qdrant:
+    compose_file: rag_service/docker-compose.qdrant.yml
+    url: http://localhost:6333
+    health_paths:
+      - /healthz
+      - /readyz
+      - /collections
+    wait_timeout_s: 60
+    wait_interval_s: 1.0
+    logs_tail: 120
+
+  mcp:
+    rag_url: http://127.0.0.1:8765
+
+doctor:
+  env_keys:
+    - RAG_QDRANT_URL
+    - RAG_CORPUS_ROOT
+    - LLMMD_RAG_BASE_URL
+    - LLMMD_CONFIG
