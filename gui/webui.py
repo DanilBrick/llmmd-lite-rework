@@ -149,9 +149,8 @@ def _render_process_card(name: str, title: str, args: list[str], *, log_lines: i
             if st.button("Остановить", key=f"stop_{name}", use_container_width=True, disabled=not running):
                 _stop_process(name)
                 st.rerun()
-    if proc is not None:
-        with st.expander(f"Лог {title}", expanded=False):
-            st.code(tail_text(proc.log_path, lines=log_lines) or "Лог пуст.", language="log")
+    if proc is not None and st.checkbox(f"Показать лог {title}", key=f"show_log_{name}"):
+        st.code(tail_text(proc.log_path, lines=log_lines) or "Лог пуст.", language="log")
 
 
 def _run_short_cli(args: list[str], *, timeout_s: float = 120.0) -> None:
@@ -285,9 +284,9 @@ def _render_job_progress_section(*, log_tail: int = 25, show_stage_history: bool
         else:
             st.success("Задача завершена или отменена!")
 
-    if show_stage_history:
-        with st.expander("История этапов", expanded=alive):
-            _render_stage_history()
+    if show_stage_history and (alive or st.checkbox("Показать историю этапов", key="show_stage_history")):
+        st.markdown("**История этапов**")
+        _render_stage_history()
     st.code("\n".join(log[-log_tail:]), language="log")
 
 
@@ -404,23 +403,23 @@ def render_rag_config_section():
             "Макс. символов источника", 500, 100000, value=s.rag_source_max_chars
         )
 
-    with st.expander("LLM-провайдеры", expanded=False):
-        s.default_rag_llm_provider = st.selectbox(
-            "Провайдер по умолчанию",
-            ["auto", "lm_studio", "openai", "anthropic"],
-            index=["auto", "lm_studio", "openai", "anthropic"].index(s.default_rag_llm_provider),
-        )
-        s.lm_studio_base_url = st.text_input("LM Studio URL", value=s.lm_studio_base_url)
-        s.lm_studio_api_key = st.text_input(
-            "LM Studio API ключ", type="password", value=s.lm_studio_api_key or ""
-        )
-        s.lm_studio_rag_model = st.text_input("Модель RAG (LM Studio)", value=s.lm_studio_rag_model)
-        s.default_llm_model = st.text_input("Модель OpenAI", value=s.default_llm_model)
-        s.openai_api_key = st.text_input("OpenAI API ключ", type="password", value=s.openai_api_key or "")
-        s.anthropic_api_key = st.text_input(
-            "Anthropic API ключ", type="password", value=s.anthropic_api_key or ""
-        )
-        s.anthropic_model = st.text_input("Модель Anthropic", value=s.anthropic_model)
+    st.subheader("LLM-провайдеры")
+    s.default_rag_llm_provider = st.selectbox(
+        "Провайдер по умолчанию",
+        ["auto", "lm_studio", "openai", "anthropic"],
+        index=["auto", "lm_studio", "openai", "anthropic"].index(s.default_rag_llm_provider),
+    )
+    s.lm_studio_base_url = st.text_input("LM Studio URL", value=s.lm_studio_base_url)
+    s.lm_studio_api_key = st.text_input(
+        "LM Studio API ключ", type="password", value=s.lm_studio_api_key or ""
+    )
+    s.lm_studio_rag_model = st.text_input("Модель RAG (LM Studio)", value=s.lm_studio_rag_model)
+    s.default_llm_model = st.text_input("Модель OpenAI", value=s.default_llm_model)
+    s.openai_api_key = st.text_input("OpenAI API ключ", type="password", value=s.openai_api_key or "")
+    s.anthropic_api_key = st.text_input(
+        "Anthropic API ключ", type="password", value=s.anthropic_api_key or ""
+    )
+    s.anthropic_model = st.text_input("Модель Anthropic", value=s.anthropic_model)
 
     if st.button("Сохранить настройки RAG", type="primary", key="save_rag"):
         if not s.corpus_root:
@@ -557,19 +556,19 @@ def render_ocr_section():
         if not isinstance(saved_stages, list):
             saved_stages = default_enabled_stages()
 
-        with st.expander("Системные настройки", expanded=False):
-            figures_workers = st.number_input(
-                "Потоки для картинок", 1, 16, value=get_gui_setting("figures_workers", 4)
-            )
-            output_stem = st.text_input(
-                "Префикс имени файла", value=get_gui_setting("output_stem", "")
-            )
-            enabled_stages = st.multiselect(
-                "Этапы пайплайна",
-                options=list(stage_options),
-                default=[sid for sid in saved_stages if sid in stage_options] or default_enabled_stages(),
-                format_func=lambda sid: stage_options[sid]["title"],
-            )
+        st.markdown("**Системные настройки**")
+        figures_workers = st.number_input(
+            "Потоки для картинок", 1, 16, value=get_gui_setting("figures_workers", 4)
+        )
+        output_stem = st.text_input(
+            "Префикс имени файла", value=get_gui_setting("output_stem", "")
+        )
+        enabled_stages = st.multiselect(
+            "Этапы пайплайна",
+            options=list(stage_options),
+            default=[sid for sid in saved_stages if sid in stage_options] or default_enabled_stages(),
+            format_func=lambda sid: stage_options[sid]["title"],
+        )
 
     ocr_settings_blob = {
         "output_dir": out_dir,
@@ -728,7 +727,8 @@ def render_rag_chat_section():
                                 or ctx.get("metadata", {}).get("source_file")
                                 or "?"
                             )
-                            with st.expander(f"{idx + 1}. {source_file}"):
+                            with st.container(border=True):
+                                st.markdown(f"**{idx + 1}. {source_file}**")
                                 st.write(ctx.get("text") or ctx.get("heading") or "")
                 else:
                     st.error(f"Ошибка: {resp.text}")
@@ -748,20 +748,20 @@ def render_setup_doctor_section():
             st.rerun()
     _render_last_cli_result()
 
-    with st.expander("Установка зависимостей", expanded=False):
-        st.warning("Может занять долго и изменит Python-окружение.")
-        available = ["rag", "web", "lmstudio", "mcp", "dev", "all"]
-        selected = st.multiselect("Группы", options=available, default=["all"])
-        if st.button("python llmmd.py setup ..."):
-            _run_short_cli(["setup", *selected], timeout_s=1800.0)
-            st.rerun()
+    st.subheader("Установка зависимостей")
+    st.warning("Может занять долго и изменит Python-окружение.")
+    available = ["rag", "web", "lmstudio", "mcp", "dev", "all"]
+    selected = st.multiselect("Группы", options=available, default=["all"])
+    if st.button("python llmmd.py setup ..."):
+        _run_short_cli(["setup", *selected], timeout_s=1800.0)
+        st.rerun()
 
-    with st.expander("MCP для Cursor / Claude", expanded=False):
-        st.caption("Генерирует JSON с `rag_search` и `rag_ask`. Нужен запущенный RAG API.")
-        if st.button("mcp-config", key="mcp_config_btn"):
-            _run_short_cli(["mcp-config"], timeout_s=30.0)
-            st.rerun()
-        _render_last_cli_result()
+    st.subheader("MCP для Cursor / Claude")
+    st.caption("Генерирует JSON с `rag_search` и `rag_ask`. Нужен запущенный RAG API.")
+    if st.button("mcp-config", key="mcp_config_btn"):
+        _run_short_cli(["mcp-config"], timeout_s=30.0)
+        st.rerun()
+    _render_last_cli_result()
 
 
 def inject_custom_css():

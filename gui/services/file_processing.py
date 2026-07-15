@@ -1673,7 +1673,9 @@ def _make_openai_client(base_url: str, api_key: str) -> Any:
     if httpx is not None:
         kwargs["timeout"] = httpx.Timeout(LLM_HTTP_TIMEOUT_S, connect=LLM_HTTP_CONNECT_TIMEOUT_S)
     if base_url:
-        kwargs["base_url"] = base_url
+        from lmstudio_autoload.urls import normalize_lm_studio_base_url
+
+        kwargs["base_url"] = normalize_lm_studio_base_url(base_url, default=base_url.rstrip("/"))
     return OpenAI(**kwargs)
 
 
@@ -1724,6 +1726,10 @@ def build_markitdown(
 def run_conversion_job(args: dict, events: queue.Queue) -> None:
     try:
         llm_text, ocr_explicit, _, llm_figure = resolve_llm_models(args)
+        if args.get("use_llm") and args.get("use_lmstudio_autoload"):
+            from lmstudio_autoload.urls import normalize_lm_studio_base_url
+
+            args["base_url"] = normalize_lm_studio_base_url(args.get("base_url") or "")
         stage_started: dict[str, float] = {}
         stage_reports: dict[int, list[dict[str, Any]]] = {}
         enabled_stages = normalize_enabled_stages(args.get("enabled_stages"))

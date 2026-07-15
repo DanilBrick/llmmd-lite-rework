@@ -16,9 +16,10 @@ def resolve_llm_models(args: dict[str, Any]) -> tuple[str, str, str, str]:
 
 def _config_from_args(args: dict[str, Any]):
     from lmstudio_autoload.config import AutoloadConfig
+    from lmstudio_autoload.urls import normalize_lm_studio_base_url
 
     text, _ocr_ex, ocr_auto, fig = resolve_llm_models(args)
-    base = (args.get("base_url") or "").strip() or "http://127.0.0.1:1234/v1"
+    base = normalize_lm_studio_base_url(args.get("base_url") or "")
     key = (args.get("api_key") or "").strip() or None
     return AutoloadConfig.model_validate(
         {

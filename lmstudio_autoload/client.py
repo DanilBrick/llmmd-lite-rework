@@ -18,19 +18,34 @@ class LMStudioClient:
             headers["Authorization"] = f"Bearer {token}"
         return headers
 
-    def list_model_ids(self) -> set[str]:
-        url = f"{self._config.api_root}/v1/models"
+    def is_model_loaded(self, model_id: str) -> bool:
+        """True only if the model has a non-empty loaded_instances entry (native REST API)."""
+        want = model_id.strip()
+        if not want:
+            return False
+        url = f"{self._config.api_root}/api/v1/models"
         with httpx.Client(timeout=httpx.Timeout(30.0, connect=5.0)) as client:
             response = client.get(url, headers=self._headers())
             response.raise_for_status()
             payload = response.json()
-        ids: set[str] = set()
-        for item in payload.get("data") or []:
-            if isinstance(item, dict):
-                mid = item.get("id")
-                if isinstance(mid, str) and mid.strip():
-                    ids.add(mid.strip())
-        return ids
+        for model in payload.get("models") or []:
+            if not isinstance(model, dict):
+                continue
+            instances = model.get("loaded_instances") or []
+            if not instances:
+                continue
+            key = (model.get("key") or "").strip()
+            if key == want:
+                return True
+            for inst in instances:
+                if isinstance(inst, dict):
+                    iid = (inst.get("id") or "").strip()
+                    if iid == want:
+                        return True
+            for variant in model.get("variants") or []:
+                if isinstance(variant, str) and variant.strip() == want:
+                    return True
+        return False
 
     def load_model(self, model_id: str) -> dict[str, Any]:
         url = f"{self._config.api_root}/api/v1/models/load"

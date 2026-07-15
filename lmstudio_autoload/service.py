@@ -40,8 +40,7 @@ class AutoLoadService:
                 error=str(e),
             )
         try:
-            loaded = self._client.list_model_ids()
-            if model_id in loaded:
+            if self._client.is_model_loaded(model_id):
                 return EnsureResult(
                     ok=True,
                     role=role,

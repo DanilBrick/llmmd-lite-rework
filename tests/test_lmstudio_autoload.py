@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from lmstudio_autoload.config import AutoloadConfig
+from lmstudio_autoload.urls import normalize_lm_studio_base_url
 from lmstudio_autoload.service import AutoLoadService
 
 
@@ -9,13 +10,19 @@ class _FakeClient:
         self.loaded: set[str] = set()
         self.load_calls: list[str] = []
 
-    def list_model_ids(self) -> set[str]:
-        return set(self.loaded)
+    def is_model_loaded(self, model_id: str) -> bool:
+        return model_id in self.loaded
 
     def load_model(self, model_id: str) -> dict:
         self.load_calls.append(model_id)
         self.loaded.add(model_id)
         return {"ok": True}
+
+
+def test_normalize_lm_studio_base_url():
+    assert normalize_lm_studio_base_url("") == "http://127.0.0.1:1234/v1"
+    assert normalize_lm_studio_base_url("http://127.0.0.1:1234/v1") == "http://127.0.0.1:1234/v1"
+    assert normalize_lm_studio_base_url("http://127.0.0.1:1234") == "http://127.0.0.1:1234/v1"
 
 
 def test_ensure_model_skips_when_already_loaded():

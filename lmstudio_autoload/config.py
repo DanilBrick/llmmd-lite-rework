@@ -6,6 +6,8 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, Field
 
+from .urls import normalize_lm_studio_base_url
+
 
 class ServerConfig(BaseModel):
     base_url: str = "http://127.0.0.1:1234/v1"
@@ -31,7 +33,7 @@ class AutoloadConfig(BaseModel):
 
     @property
     def api_root(self) -> str:
-        return self.server.base_url.rstrip("/").removesuffix("/v1")
+        return normalize_lm_studio_base_url(self.server.base_url).removesuffix("/v1")
 
 
 def default_config_path() -> Path:
