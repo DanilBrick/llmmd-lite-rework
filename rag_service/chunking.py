@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import List
 
 # Согласовано с services/file_processing.split_markdown_by_heading (уровень + шумные заголовки).
 
@@ -118,3 +119,24 @@ def iter_markdown_files(root: Path, *, glob_pattern: str = "**/*.md") -> list[Pa
     if not root.is_dir():
         return []
     return sorted(p for p in root.glob(glob_pattern) if p.is_file())
+
+
+def find_or_convert_docx_files(root: Path, glob_pattern: str = "**/*.docx") -> list[Path]:
+    """
+    Find .md files, or convert .docx files to .md if .md not found.
+    Returns list of .md files to index.
+    """
+    md_files = sorted(root.glob("**/*.md"))
+
+    if md_files:
+        return md_files
+
+    try:
+        from .docx_to_md import convert_docx_folder_to_markdown
+
+        output_dir = root / "outputs"
+        converted = convert_docx_folder_to_markdown(root, output_dir)
+
+        return converted
+    except Exception:
+        return []

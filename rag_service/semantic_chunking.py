@@ -15,6 +15,8 @@ from .config import Settings
 
 ChunkingMode = Literal["heading", "semantic", "heading_semantic"]
 
+_STOP_MODELS = ("intfloat/multilingual-e5-large", "nomic-embed-text-v1.5-GGUF")
+
 
 def _strip_json_fence(raw: str) -> str:
     s = (raw or "").strip()
@@ -52,6 +54,15 @@ def _lm_chat(
     timeout: float,
     temperature: float,
 ) -> str:
+    if not model:
+        raise ValueError("Model name is empty")
+    
+    if model in _STOP_MODELS:
+        raise ValueError(
+            f"Model '{model}' is an embedding model, not a chat model. "
+            "LLM chat completion API requires a chat-capable model."
+        )
+    
     root = base_url.rstrip("/")
     if not root.endswith("/v1"):
         root = root + "/v1"
@@ -193,6 +204,12 @@ def split_for_index(
     model = settings.semantic_chunk_model.strip()
     if not model:
         raise ValueError("Задайте RAG_SEMANTIC_CHUNK_MODEL (имя модели в LM Studio)")
+    
+    if model in ("intfloat/multilingual-e5-large", "nomic-embed-text-v1.5-GGUF"):
+        raise ValueError(
+            f"semantic_chunk_model={model} — это модель эмбеддингов, а не LLM. "
+            "Укажите имя LLM-модели (например, google/gemma-3-1b), которая поддерживает /chat/completions"
+        )
 
     if chunking_mode == "semantic":
         return _semantic_only_chunks(

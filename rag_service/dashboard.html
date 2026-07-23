@@ -206,6 +206,7 @@
       <span>Тема</span>
       <button type="button" class="switch" id="themeSwitch" aria-pressed="false"><i></i></button>
     </label>
+    <button type="button" class="primary secondary" id="btnChat">Открыть чат</button>
   </div>
 
   <div class="grid">
@@ -302,6 +303,33 @@
       <pre class="box mono" id="probeOut" hidden></pre>
     </section>
   </div>
+
+  <details id="chatSection" class="card wide" style="margin-top:1rem; display:none;">
+    <summary>💬 Чат с документами (RAG)</summary>
+    <div class="form-grid" style="max-width:70rem;">
+      <div class="form-row">
+        <label style="flex:1;">
+          Ваш вопрос:
+          <textarea id="chatQuery" rows="3" style="width:100%; font-family:inherit; padding:0.35rem 0.45rem; border-radius:6px; border:1px solid var(--border); background:var(--card2); color:var(--text);" placeholder="Задайте вопрос по индексированным документам..."></textarea>
+        </label>
+      </div>
+      <div class="form-row">
+        <button type="button" class="primary secondary" id="chatSend">Отправить</button>
+        <label>Модель
+          <select id="chatModel">
+            <option value="">Авто (по настройкам)</option>
+            <option value="lm_studio">LM Studio (RAG)</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+          </select>
+        </label>
+        <label>Контекст
+          <input type="number" id="chatLimit" value="6" min="1" max="32" style="width:4rem" />
+        </label>
+      </div>
+    </div>
+    <div id="chatOutput" style="margin-top:0.75rem; background:var(--card2); border:1px solid var(--border); border-radius:10px; padding:0.85rem; min-height:100px; max-height:400px; overflow:auto;"></div>
+  </details>
 
   <p class="foot">
     <span id="poll"></span>
@@ -823,6 +851,92 @@
       const out = document.getElementById("uiSaveOut");
       out.hidden = false;
       out.textContent = "Не удалось загрузить настройки: " + String(e);
+    });
+
+    const chatSection = document.getElementById("chatSection");
+    document.getElementById("btnChat").addEventListener("click", () => {
+      chatSection.style.display = chatSection.style.display === "none" ? "block" : "none";
+      if (chatSection.style.display === "block") {
+        document.getElementById("chatQuery").focus();
+      }
+    });
+
+    async function sendChat() {
+      const queryEl = document.getElementById("chatQuery");
+      const query = queryEl.value.trim();
+      if (!query) return;
+      
+      const modelSelect = document.getElementById("chatModel");
+      const limit = parseInt(document.getElementById("chatLimit").value, 10) || 6;
+      const model = modelSelect.value || null;
+      
+      const outputDiv = document.getElementById("chatOutput");
+      outputDiv.innerHTML += "<div style=\"margin-bottom:0.75rem;\"><span style=\"color:var(--accent);font-weight:650;\">Вы:</span> " + esc(query) + "</div>";
+      
+      queryEl.value = "";
+      queryEl.style.height = "auto";
+      queryEl.style.height = queryEl.scrollHeight + "px";
+      
+      const btn = document.getElementById("chatSend");
+      const originalText = btn.textContent;
+      btn.textContent = "…";
+      btn.disabled = true;
+      
+      try {
+        const payload = { query: query, limit: limit };
+        if (model) payload.llm_provider = model;
+        
+        const r = await fetch("/v1/rag", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        
+        const data = await r.json();
+        btn.textContent = originalText;
+        btn.disabled = false;
+        
+        if (!r.ok) {
+          outputDiv.innerHTML += "<div style=\"margin-bottom:0.75rem;\"><span style=\"color:var(--err);\">Ошибка:</span> " + esc(String(data.detail || data)) + "</div>";
+          return;
+        }
+        
+        const answer = data.answer || "";
+        const sources = data.sources || [];
+        
+        outputDiv.innerHTML += "<div style=\"margin-bottom:1rem;\"><span style=\"color:var(--ok);font-weight:650;\">Ответ:</span> " + esc(answer) + "</div>";
+        
+        if (sources.length) {
+          let sourcesHtml = "<div style=\"margin-top:0.5rem;\"><span style=\"color:var(--muted);font-size:0.82rem;\">Источники:</span><ul style=\"margin:0.5rem 0 0 1.2rem; padding-left:1.2rem; font-size:0.8rem;\">";
+
+          for (let i = 0; i < sources.length; i++) {
+            const s = sources[i];
+            const path = s.source_path || "?";
+            const head = s.heading ? " — " + s.heading : "";
+            sourcesHtml += "<li style=\"margin-bottom:0.25rem;\"><span style=\"color:var(--accent);\">" + esc(String(i + 1)) + ".</span> " + esc(path + head);
+            if (s.text_chars) {
+              sourcesHtml += " <span style=\"color:var(--muted);\">(" + s.text_chars + " симв.)</span>";
+            }
+            sourcesHtml += "</li>";
+          }
+          sourcesHtml += "</ul></div>";
+          outputDiv.innerHTML += sourcesHtml;
+        }
+      } catch (e) {
+        btn.textContent = originalText;
+        btn.disabled = false;
+        outputDiv.innerHTML += "<div style=\"margin-bottom:0.75rem;\"><span style=\"color:var(--err);\">Сетевая ошибка:</span> " + esc(String(e)) + "</div>";
+      }
+    }
+
+    document.getElementById("chatSend").addEventListener("click", sendChat);
+
+    const chatQueryEl = document.getElementById("chatQuery");
+    chatQueryEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendChat();
+      }
     });
 
     loadPrefs();

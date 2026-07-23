@@ -36,12 +36,14 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Optional
 
+_STOP_LM_MODELS = ("intfloat/multilingual-e5-large", "nomic-embed-text-v1.5-GGUF")
+
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from .chunking import chunk_markdown_file, iter_markdown_files
+from .chunking import chunk_markdown_file, iter_markdown_files, find_or_convert_docx_files
 from .config import Settings
 from .semantic_chunking import normalize_chunking_mode, split_for_index
 from .embeddings import HybridEncoder, load_hybrid_encoder
@@ -152,6 +154,25 @@ async def lifespan(_app: FastAPI):
     s = state.settings
     state.startup_error = None
     set_service_starting()
+    
+    # Проверка модели semantic_chunk_model
+    semantic_model = (s.semantic_chunk_model or "").strip()
+    if semantic_model in _STOP_LM_MODELS:
+        state.startup_error = (
+            f"semantic_chunk_model={semantic_model} — это модель эмбеддингов, а не LLM. "
+            f"Укажите имя LLM-модели (например, google/gemma-3-1b) в RAG_SEMANTIC_CHUNK_MODEL"
+        )
+        set_service_ready(
+            startup_error=state.startup_error,
+            embedding_model="",
+            hybrid=False,
+            dense_dim=0,
+            qdrant_url=s.qdrant_url,
+            collection_name=s.collection_name,
+        )
+        yield
+        return
+    
     qd, enc, hybrid, dim, err = bootstrap_from_settings(s)
     if err:
         state.startup_error = err
@@ -240,9 +261,9 @@ def lm_studio_health() -> dict[str, Any]:
 
 
 class IndexRequest(BaseModel):
-    corpus_root: Optional[Path] = Field(default=None, description="Каталог с .md; иначе RAG_CORPUS_ROOT")
+    corpus_root: Optional[Path] = Field(default=None, description="Каталог с .md/.docx; иначе RAG_CORPUS_ROOT")
     recreate_collection: bool = False
-    glob_pattern: str = "**/*.md"
+    glob_pattern: str = "**/*.docx"
     heading_level: Optional[int] = Field(default=None, ge=1, le=6, description="Переопределить RAG_HEADING_LEVEL")
     chunk_max_chars: Optional[int] = Field(
         default=None,
@@ -640,7 +661,7 @@ def index_corpus(body: IndexRequest) -> Any:
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
 
-    files = list(iter_markdown_files(root, glob_pattern=body.glob_pattern))
+    files = list(find_or_convert_docx_files(root, glob_pattern=body.glob_pattern))
     job_id = new_job_id()
 
     if not body.wait:
@@ -1245,6 +1266,12 @@ async def _rag_answer_with_provider(
             raise HTTPException(
                 501,
                 "LM Studio: укажите model в теле запроса или задайте RAG_LM_STUDIO_RAG_MODEL / RAG_SEMANTIC_CHUNK_MODEL.",
+            )
+        if lm_model in _STOP_LM_MODELS:
+            raise HTTPException(
+                400,
+                f"model={lm_model} — это модель эмбеддингов, а не LLM. "
+                f"Укажите имя LLM-модели (например, google/gemma-3-1b)."
             )
         base = (s.lm_studio_base_url or "").strip() or "http://127.0.0.1:1234/v1"
         answer = await _openai_style_chat_completion(
