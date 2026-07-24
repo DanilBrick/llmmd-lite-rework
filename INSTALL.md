@@ -33,6 +33,7 @@ localhostForwarding=true
 3. Сохранить файл под именем `.wslconfig` в вашей пользовательской папке: `C:\Users\ваше_имя_пользователя\`
 
 (!) Убедитесь, что файл называется именно `.wslconfig`, а не `.wslconfig.txt` или иначе.
+
 4. Откройте PowerShell или командную строку и выполните команду `wsl --shotdown`
 5. Запустите Docker Desktop обычным способом.
 
@@ -80,6 +81,7 @@ localhostForwarding=true
 6. В окне "Choosing the default editor used by Git" выбрать "Use Visual Code as Git's default editor";
 
 Примечание: Visual Studio Code - среда разработки, устанавливается отдельно.
+
 7. В окне "Adjusting the name of the initial branch in new repositories" выбрать "Override the default branch name for new repositories" и оставить значение "main";
 8. В окне "Adjusting your PATH enviroment" выбрать "Git from the command line and also from 3rd-party software";
 9. В окне "Choosing the SSH executable" выбрать "Use bundled OpenSSH";
